@@ -1,0 +1,12 @@
+*.DotSettings
+*.ncrunchsolution
+*.donotcheckin
+*.suo
+*.user
+bin/
+csx/
+Bin/
+obj/
+_NCrunch_*/
+*.ncrunchproject
+*.ReSharper
