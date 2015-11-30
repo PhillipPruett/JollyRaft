@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JollyRaft", "JollyRaft\Joll
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JollyRaft.Tests", "JollyRaft.Tests\JollyRaft.Tests.csproj", "{F468E99B-9C86-4F64-BCE8-F136DD7F8661}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Samples", "Samples\Samples.csproj", "{3EE83630-B280-4BF8-B98D-7E91FE5378A5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleWebApplication.Tests", "Samples\SampleWebApplication.Tests.csproj", "{3EE83630-B280-4BF8-B98D-7E91FE5378A5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleWebApplication", "SampleWebApplication\SampleWebApplication.csproj", "{DB6D4B35-4742-4C14-BA69-B7E5A7CD75FB}"
 EndProject

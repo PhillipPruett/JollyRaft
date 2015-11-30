@@ -6,8 +6,8 @@
     <ProjectGuid>{3EE83630-B280-4BF8-B98D-7E91FE5378A5}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Samples</RootNamespace>
-    <AssemblyName>Samples</AssemblyName>
+    <RootNamespace>SampleWebApplication.Tests</RootNamespace>
+    <AssemblyName>SampleWebApplication.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
