@@ -30,11 +30,6 @@ namespace JollyRaft
             LastTerm = term;
         }
 
-        public int TermOfEntry(int entryIndex)
-        {
-            return Entries.Single(e => e.Index == entryIndex).Term;
-        }
-
         public void RemoveEntryAndThoseAfterIt(int entryIndex)
         {
             Entries.RemoveAll(e => e.Index >= entryIndex);

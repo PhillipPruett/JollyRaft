@@ -32,8 +32,8 @@ namespace SampleWebApplication
         public string ConfigureAndStartRaft(string nodeId, IObservable<IEnumerable<Peer>> peerObservable)
         {
             thisServersNode = new Node(new NodeSettings(nodeId,
+                                                        TimeSpan.FromSeconds(5),
                                                         TimeSpan.FromSeconds(1),
-                                                        TimeSpan.FromMilliseconds(100),
                                                         peerObservable));
             thisServersNode.Start();
             return thisServersNode.Id;

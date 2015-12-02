@@ -47,7 +47,7 @@ namespace JollyRaft.Tests
             nodes.Start();
 
             testScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks);
-            nodes.Should().ContainSingle(n => n.State == State.Leader || n.State == State.Candidate);
+            nodes.Should().Contain(n => n.State == State.Leader || n.State == State.Candidate);
         }
 
         [Test]

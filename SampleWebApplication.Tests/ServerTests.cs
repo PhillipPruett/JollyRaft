@@ -44,6 +44,8 @@ namespace Samples
                 );
 
             peerObservable.OnNext(peers);
+
+            httpClients.WaitForLeader().Wait();
         }
 
         private readonly List<HttpClient> httpClients = new List<HttpClient>();
@@ -91,12 +93,25 @@ namespace Samples
         [Test]
         public void when_log_is_requestedof_a_follower_bad_request_is_returned()
         {
-            httpClients.First().PostAsync("log",
-                                          new
-                                          {
-                                              Log = "first commit"
-                                          }.AsStringContent())
+            httpClients.First(c => c.GetAsync("state").Result.Content.ReadAsStringAsync().Result.DeserializeAs<State>() == State.Follower)
+                       .PostAsync("log",
+                                  new
+                                  {
+                                      Log = "first commit"
+                                  }.AsStringContent())
                        .Result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Test]
+        public void when_log_is_requestedof_a_leader_OK_is_returned()
+        {
+            httpClients.First(c => c.GetAsync("state").Result.Content.ReadAsStringAsync().Result.DeserializeAs<State>() == State.Leader)
+                       .PostAsync("log",
+                                  new
+                                  {
+                                      Log = "first commit"
+                                  }.AsStringContent())
+                       .Result.StatusCode.Should().Be(HttpStatusCode.OK);
         }
     }
 }
