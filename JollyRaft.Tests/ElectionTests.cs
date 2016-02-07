@@ -46,7 +46,7 @@ namespace JollyRaft.Tests
             var nodes = TestNode.CreateCluster(scheduler: testScheduler);
             nodes.Start();
 
-            testScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks);
+            testScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks*2);
             nodes.Should().Contain(n => n.State == State.Leader || n.State == State.Candidate);
         }
 
@@ -110,7 +110,7 @@ namespace JollyRaft.Tests
         }
 
         [Test]
-        public async Task when_all_nodes_try_to_stat_an_election_at_the_same_time_only_one_is_elected()
+        public async Task when_all_nodes_try_to_start_an_election_at_the_same_time_only_one_is_elected()
         {
             var nodes = TestNode.CreateCluster();
 

@@ -92,13 +92,13 @@ namespace JollyRaft
                 if (State != State.Leader)
                 {
                     State = State.Candidate;
-                    Debug.WriteLine("{0}: Starting a new Election. current term {1}", NodeInfo(), Term);
+                    Debug.WriteLine("{0}: Starting a new Election. current term {1}. election Timout {2}ms", NodeInfo(), Term, electionTimeout.TotalMilliseconds);
                     Term++;
 
                     CurrentLeader = Id;
                     var successCount = 0;
 
-                    Peers.ForEach(async p =>
+                    var blah  = Peers.Select(async p =>
                                         {
                                             var vote = await p.RequestVote(new VoteRequest(Id, Term, LocalLog.LastTerm, LocalLog.LastIndex));
                                             if (vote.VoteGranted)
@@ -110,10 +110,16 @@ namespace JollyRaft
                                             {
                                                 if (vote.CurrentTerm > Term)
                                                 {
+                                                    Debug.WriteLine("{0}: stepping down as vote returned had higher term {1}", NodeInfo(), vote.CurrentTerm);
                                                     StepDown(vote.CurrentTerm, p.Id);
                                                 }
                                             }
                                         });
+
+                    foreach (var task in blah)
+                    {
+                        await task;
+                    }
 
                     if (ConcencusIsReached(successCount) && State == State.Candidate)
                     {
@@ -156,6 +162,7 @@ namespace JollyRaft
 
         private bool ConcencusIsReached(int amountOfAgreements)
         {
+            Debug.WriteLine("{0}: checking concencus: amountOfAgreements({1}) >= PeerAgreementsNeededForConcensus({2})", NodeInfo(), amountOfAgreements, PeerAgreementsNeededForConcensus());
             return amountOfAgreements >= PeerAgreementsNeededForConcensus();
         }
 

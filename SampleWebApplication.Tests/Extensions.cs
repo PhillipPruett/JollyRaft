@@ -23,16 +23,24 @@ namespace Samples
             return JsonConvert.DeserializeObject<T>(val);
         }
 
-        public static async Task<HttpClient> WaitForLeader(this IEnumerable<HttpClient> httpClients)
+        public static async Task WaitForLeader(this HttpClient[] httpClients)
         {
-            while (httpClients.All(c => c.GetAsync("state").Result.Content.ReadAsStringAsync().Result
-                                         .DeserializeAs<State>() != State.Leader))
+            var leaderHasNotBeenElected = true;
+            while (true)
             {
+               IEnumerable<Task<bool>> isLeader =  httpClients.Select(async c => (await (await c.GetAsync("state"))
+                                         .Content.ReadAsStringAsync()).DeserializeAs<State>() == State.Leader);
+
+                foreach (var check in isLeader)
+                {
+                    if (await check)
+                    {
+                        return;
+                    }
+                }
+
                 await Task.Delay(TestNode.MaxElectionTimeout);
             }
-
-            return httpClients.Single(c => c.GetAsync("state").Result.Content.ReadAsStringAsync().Result
-                                            .DeserializeAs<State>() == State.Leader);
         }
     }
 }

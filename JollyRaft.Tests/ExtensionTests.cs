@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NUnit.Framework;
@@ -19,9 +21,22 @@ namespace JollyRaft.Tests
             for (var i = 0; i < 50; i++)
             {
                 var result = timeSpan.Randomize(10);
-
+                Console.WriteLine(result.TotalMilliseconds + "ms");
                 result.Ticks.Should().BeInRange(min, max);
             }
+        }
+
+        [Test, TestMethod, Owner("phpruett")]
+        public void results_are_fairly_randomly_distributed()
+        {
+            var timeSpan = TimeSpan.FromSeconds(10);
+
+            var results = Enumerable.Range(1, 50).Select(i => timeSpan.Randomize(10).TotalMilliseconds).ToArray();
+
+            var distinct = results.Distinct();
+            Console.WriteLine(String.Join(",", distinct));
+
+            distinct.Count().Should().BeGreaterThan(25);
         }
 
         [Test, TestMethod, Owner("phpruett")]

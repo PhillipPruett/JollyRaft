@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace JollyRaft
 {
@@ -29,7 +30,11 @@ namespace JollyRaft
 
         public async Task<VoteResult> RequestVote(VoteRequest request)
         {
-            return await requestVote(request);
+            //Debug.WriteLine(string.Format("{0} requesting vote from {1}", request.Id, Id));
+            var voteResult = await requestVote(request);
+
+            //Debug.WriteLine(string.Format("{0} got vote result from {1}", request.Id, Id));
+            return voteResult;
         }
     }
 }

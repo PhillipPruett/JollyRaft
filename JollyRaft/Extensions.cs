@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace JollyRaft
 {
     public static class Extensions
     {
+        private static readonly ThreadLocal<Random> appRandom
+            = new ThreadLocal<Random>(() => new Random());
+
         public static TimeSpan Randomize(this TimeSpan timeSpan, int maxPercentageChange)
         {
             if (maxPercentageChange < 0)
@@ -19,10 +23,9 @@ namespace JollyRaft
 
             double maxChangeInTicks = timeSpan.Ticks*(1.0/maxPercentageChange);
 
-            var random = new Random();
-            var possitiveOrNegative = (random.Next(1, 3)%2 == 0 ? 1 : -1);
+            var possitiveOrNegative = (appRandom.Value.Next(1, 3)%2 == 0 ? 1 : -1);
 
-            return new TimeSpan((long) (random.NextDouble()*maxChangeInTicks)*possitiveOrNegative + timeSpan.Ticks);
+            return new TimeSpan((long) (appRandom.Value.NextDouble()*maxChangeInTicks)*possitiveOrNegative + timeSpan.Ticks);
         }
 
         public static void ParrallelForEach<T>(this IEnumerable<T> collection, Action<T> action)

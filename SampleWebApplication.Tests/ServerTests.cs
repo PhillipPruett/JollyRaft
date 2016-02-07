@@ -29,26 +29,31 @@ namespace Samples
 
             var peers = clientsById.Select(c =>
                                            new Peer(c.Key,
-                                                    async request => c.Value.PostAsync("requestvote/",
-                                                                                       request.AsStringContent())
-                                                                      .Result
-                                                                      .Content
-                                                                      .ReadAsStringAsync().Result
-                                                                      .DeserializeAs<VoteResult>(),
-                                                    async request => c.Value.PostAsync("appendentries/",
-                                                                                       request.AsStringContent())
-                                                                      .Result
-                                                                      .Content
-                                                                      .ReadAsStringAsync().Result
-                                                                      .DeserializeAs<AppendEntriesResult>())
+                                                    async request =>
+                                                          {
+                                                              var result = (await (await c.Value.PostAsync("requestvote/",
+                                                                                                           request.AsStringContent()))
+                                                                                      .Content
+                                                                                      .ReadAsStringAsync());
+                                                              return result.DeserializeAs<VoteResult>();
+                                                          },
+                                                    async request =>
+                                                          {
+                                                              var result = (await (await c.Value.PostAsync("appendentries/",
+                                                                                                           request.AsStringContent()))
+                                                                                      .Content
+                                                                                      .ReadAsStringAsync());
+
+                                                              return result.DeserializeAs<AppendEntriesResult>();
+                                                          })
                 );
 
             peerObservable.OnNext(peers);
-
             httpClients.WaitForLeader().Wait();
         }
 
-        private readonly List<HttpClient> httpClients = new List<HttpClient>();
+        private HttpClient[] httpClients {get { return clientsById.Select(c => c.Value).ToArray(); }}
+
         private readonly CompositeDisposable disposables = new CompositeDisposable();
         private readonly List<KeyValuePair<string, HttpClient>> clientsById = new List<KeyValuePair<string, HttpClient>>();
 
@@ -57,13 +62,10 @@ namespace Samples
             var server = TestServer.Create(app =>
                                            {
                                                var startup = new StartUp();
-                                               startup.ConfigureApplication(app);
-                                               startup.ConfigureAndStartRaft(nodeId, peerObservable);
+                                               startup.ConfigureApplication(app, nodeId, peerObservable);
                                            });
-            Trace.Listeners.RemoveAt(Trace.Listeners.Count - 1);
+            Trace.Listeners.RemoveAt(Trace.Listeners.Count - 1); //hack because Owin registers an extra trace listener and makes the log output crazy
             disposables.Add(server);
-            httpClients.Add(server.HttpClient);
-
             clientsById.Add(new KeyValuePair<string, HttpClient>(nodeId, server.HttpClient));
         }
 

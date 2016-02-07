@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -58,6 +59,7 @@ namespace SampleWebApplication
         [HttpGet, Route("state")]
         public async Task<State> State()
         {
+            Console.WriteLine(string.Format("Server {0} is in state {1}", node.Id, node.State));
             return node.State;
         }
     }
