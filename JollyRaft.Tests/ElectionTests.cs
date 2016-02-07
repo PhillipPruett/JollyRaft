@@ -149,5 +149,15 @@ namespace JollyRaft.Tests
 
             nodes.Should().ContainSingle(n => n.State == State.Leader);
         }
+
+        [Test]
+        public async Task Nodes_can_be_started_multiple_times()
+        {
+            var nodes = TestNode.CreateCluster(clusterSize: 3);
+
+            nodes.Start();
+            nodes.Start();
+            nodes.Start();
+        }
     }
 }
