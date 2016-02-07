@@ -250,7 +250,7 @@ namespace JollyRaft
             return result;
         }
 
-        private async Task<LogResult> SendAppendEntries(string log, bool heartBeat)
+        public virtual async Task<LogResult> SendAppendEntries(string log, bool heartBeat)
         {
             if (!heartBeat)
             {
@@ -390,7 +390,7 @@ namespace JollyRaft
             return new AppendEntriesResult(Term, true);
         }
 
-        private void StepDown(int newTerm, string idOfNodeWithHigherTerm)
+        public void StepDown(int newTerm, string idOfNodeWithHigherTerm)
         {
             Debug.WriteLine("{0}: Stepping down due to Node {1} having a higher term. new term: {2} old term: {3} ",
                             Id,

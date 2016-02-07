@@ -89,6 +89,27 @@ namespace JollyRaft.Tests
         }
 
         [Test]
+        public async Task when_a_candidate_recieves_a_vote_response_from_a_node_with_a_higher_term_number_then_that_candidate_steps_down()
+        {
+            var peerObservable = new Subject<IEnumerable<Peer>>();
+            var nodes = TestNode.CreateCluster(peerObservable: peerObservable);
+            var leader = nodes.First();
+            await leader.StartElection();
+            leader.StepDown(2, "none");
+            await leader.StartElection();
+            nodes.ForEach(n => n.Term.Should().Be(3));
+
+            var candidateThatsBehind = TestNode.CreateTestNode("candidateThatsBehind", peerObservable);
+            nodes.Add(candidateThatsBehind);
+            peerObservable.OnNext(nodes.Select(n => n.AsPeer()));
+            await candidateThatsBehind.StartElection();
+
+            leader.State.Should().Be(State.Leader);
+            candidateThatsBehind.Term.Should().Be(3);
+            candidateThatsBehind.State.Should().Be(State.Follower, "the node should have immediatly stepped down because it attempted to start an election for term 2 but the cluster was on term 3");
+        }
+
+        [Test]
         public async Task when_a_node_is_not_aware_of_any_peers_it_will_not_start_an_election_stagnating_at_the_first_term()
         {
             var node = TestNode.CreateCluster(1).Single();

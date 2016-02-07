@@ -15,6 +15,7 @@ namespace JollyRaft
         public static TimeSpan MaxElectionTimeout = new TimeSpan((long) (ElectionTimeout.Ticks*1.2));
         public bool GrantVotes = true;
         public bool SleepOnAppendEntries = false;
+        private bool stopSendingAppendEntries;
 
         public TestNode(NodeSettings nodeSettings) : base(nodeSettings)
         {
@@ -36,6 +37,11 @@ namespace JollyRaft
                 return Task.FromResult(new VoteResult(Term, false));
             }
             return base.Vote(request);
+        }
+
+        public override async Task<LogResult> SendAppendEntries(string log, bool heartBeat)
+        {
+            return stopSendingAppendEntries ? new LogResult() : await base.SendAppendEntries(log, heartBeat);
         }
 
         public static List<Node> CreateCluster(int clusterSize = 3, Subject<IEnumerable<Peer>> peerObservable = null, IScheduler scheduler = null)
@@ -60,6 +66,11 @@ namespace JollyRaft
             scheduler = scheduler ?? Scheduler.Default;
 
             return new TestNode(new NodeSettings(nodeId, ElectionTimeout, HeartBeatTimeout, peerObservable, scheduler));
+        }
+
+        public void StopSendingAppendEntries()
+        {
+            stopSendingAppendEntries = true;
         }
     }
 }
