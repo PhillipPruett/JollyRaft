@@ -139,5 +139,15 @@ namespace JollyRaft.Tests
 
             nodes.Should().ContainSingle(n => n.State == State.Leader);
         }
+
+        [Test]
+        public async Task elections_work_for_large_clusters()
+        {
+            var nodes = TestNode.CreateCluster(clusterSize: 100);
+
+            nodes.ForEach(n => n.StartElection());
+
+            nodes.Should().ContainSingle(n => n.State == State.Leader);
+        }
     }
 }
