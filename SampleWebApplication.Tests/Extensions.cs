@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using JollyRaft;
 using Newtonsoft.Json;
 
-namespace Samples
+namespace JollyRaft.Sample.Tests
 {
     public static class Extensions
     {

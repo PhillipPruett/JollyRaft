@@ -256,7 +256,8 @@ namespace JollyRaft
             {
                 LocalLog.Add(Term, log);
             }
-            var results = new List<AppendEntriesResult>();
+
+            var successCount = 0;
 
             Peers.ForEach(async peer =>
                                 {
@@ -271,11 +272,14 @@ namespace JollyRaft
                                         StepDown(result.CurrentTerm, peer.Id);
                                     }
 
-                                    results.Add(result);
+                                    if (result.Success)
+                                    {
+                                        Interlocked.Increment(ref successCount);
+                                    }
                                     Debug.WriteLine("{0}: Got a result {1}", NodeInfo(), peer.Id);
                                 });
 
-            if (results.Count(r => r.Success) >= PeerAgreementsNeededForConcensus())
+            if (successCount >= PeerAgreementsNeededForConcensus())
             {
                 await CommitToServerLog(log);
             }

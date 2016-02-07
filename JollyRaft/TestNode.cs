@@ -12,7 +12,7 @@ namespace JollyRaft
     {
         public static TimeSpan ElectionTimeout = TimeSpan.FromSeconds(1);
         public static TimeSpan HeartBeatTimeout = TimeSpan.FromMilliseconds(100);
-        public static TimeSpan MaxElectionTimeout = new TimeSpan((long) (ElectionTimeout.Ticks*1.1));
+        public static TimeSpan MaxElectionTimeout = new TimeSpan((long) (ElectionTimeout.Ticks*1.2));
         public bool GrantVotes = true;
         public bool SleepOnAppendEntries = false;
 

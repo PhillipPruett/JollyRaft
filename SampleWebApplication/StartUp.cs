@@ -19,8 +19,7 @@ namespace SampleWebApplication
 
         public void Configuration(IAppBuilder app)
         {
-            //ConfigureApplication(app, Guid.NewGuid().ToString(), peersObservable);
-            //ConfigureAndStartRaft(Guid.NewGuid().ToString(), peersObservable);
+            ConfigureApplication(app, Guid.NewGuid().ToString(), peersObservable);
         }
 
         public void ConfigureApplication(IAppBuilder app, string nodeId, IObservable<IEnumerable<Peer>> peerObserver)
@@ -37,12 +36,6 @@ namespace SampleWebApplication
             config.MapHttpAttributeRoutes();
             JsonSerialization(config);
             app.UseWebApi(config);
-
-            thisServersNode.Start();
-        }
-        public void ConfigureAndStartRaft(string nodeId, IObservable<IEnumerable<Peer>> peerObserver)
-        {
-
             thisServersNode.Start();
         }
 
@@ -58,7 +51,7 @@ namespace SampleWebApplication
                                                    }
                                   };
 
-            JsonConvert.DefaultSettings = () => { return defaultSettings; };
+            JsonConvert.DefaultSettings = () => defaultSettings;
 
             config.Formatters.Clear();
             config.Formatters.Add(new JsonMediaTypeFormatter());
