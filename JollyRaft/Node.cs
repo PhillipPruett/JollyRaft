@@ -98,23 +98,23 @@ namespace JollyRaft
                     CurrentLeader = Id;
                     var successCount = 0;
 
-                    var blah  = Peers.Select(async p =>
-                                        {
-                                            var vote = await p.RequestVote(new VoteRequest(Id, Term, LocalLog.LastTerm, LocalLog.LastIndex));
-                                            if (vote.VoteGranted)
-                                            {
-                                                Debug.WriteLine("{0}: Vote granted from {1}", NodeInfo(), p.Id);
-                                                Interlocked.Increment(ref successCount);
-                                            }
-                                            else
-                                            {
-                                                if (vote.CurrentTerm > Term)
-                                                {
-                                                    Debug.WriteLine("{0}: stepping down as vote returned had higher term {1}", NodeInfo(), vote.CurrentTerm);
-                                                    StepDown(vote.CurrentTerm, p.Id);
-                                                }
-                                            }
-                                        });
+                    var blah = Peers.Select(async p =>
+                                                  {
+                                                      var vote = await p.RequestVote(new VoteRequest(Id, Term, LocalLog.LastTerm, LocalLog.LastIndex));
+                                                      if (vote.VoteGranted)
+                                                      {
+                                                          Debug.WriteLine("{0}: Vote granted from {1}", NodeInfo(), p.Id);
+                                                          Interlocked.Increment(ref successCount);
+                                                      }
+                                                      else
+                                                      {
+                                                          if (vote.CurrentTerm > Term)
+                                                          {
+                                                              Debug.WriteLine("{0}: stepping down as vote returned had higher term {1}", NodeInfo(), vote.CurrentTerm);
+                                                              StepDown(vote.CurrentTerm, p.Id);
+                                                          }
+                                                      }
+                                                  });
 
                     foreach (var task in blah)
                     {
@@ -228,7 +228,7 @@ namespace JollyRaft
             Debug.WriteLine("{0}: Commiting to server log {1}", NodeInfo(), log);
             ServerLog.Add(Term, log);
             CommitIndex = ServerLog.LastIndex;
-            await SendHeartBeat(); 
+            await SendHeartBeat();
         }
 
         private async Task<AppendEntriesResult> AppendAllTheEntries(bool heartBeat, Peer peer)
