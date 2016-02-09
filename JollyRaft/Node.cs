@@ -318,42 +318,6 @@ namespace JollyRaft
                    };
         }
 
-        private Task<Log> SendAppendEntriesInParallel(string log, bool heartBeat)
-        {
-            if (!heartBeat)
-            {
-                LocalLog.Add(Term, log);
-            }
-
-            var tcs = new TaskCompletionSource<Log>();
-            var successCount = 0;
-
-            Peers.ForEach(peer => Task.Run(async () =>
-                                                 {
-                                                     AppendEntriesResult result;
-                                                     Debug.WriteLine("{0}: sending append entries to {1}", NodeInfo(), peer.Id);
-                                                     result = await AppendAllTheEntries(heartBeat, peer);
-                                                     Debug.WriteLine("{0}: Got a result {1}", NodeInfo(), peer.Id);
-                                                     return result;
-                                                 })
-                                      .ContinueWith(async t =>
-                                                          {
-                                                              Debug.WriteLine("{0}: ContinueingWith {1}", NodeInfo(), t.Result.Success);
-                                                              if (t.Result.Success)
-                                                              {
-                                                                  Interlocked.Increment(ref successCount);
-                                                              }
-
-                                                              if (successCount >= PeerAgreementsNeededForConcensus())
-                                                              {
-                                                                  await CommitToServerLog(log);
-                                                                  tcs.SetResult(ServerLog);
-                                                              }
-                                                          }));
-
-            return tcs.Task;
-        }
-
         public virtual async Task<AppendEntriesResult> AppendEntries(AppendEntriesRequest request)
         {
             Debug.WriteLine("{0}: GOT APPEND ENTRIES CALL {1}: leader commit {2} : entries: {3}", NodeInfo(), request.Id, request.CommitIndex, String.Concat(request.Entries.Select(e => e.Log + " ")));
