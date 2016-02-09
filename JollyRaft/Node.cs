@@ -42,7 +42,7 @@ namespace JollyRaft
                                         .Subscribe(Observer.Create<IEnumerable<Peer>>(peers =>
                                                                                       {
                                                                                           Peers = peers.Where(p => p.Id != Id);
-                                                                                          Peers.ForEach(p => Debug.WriteLine("{0} new peer discovered: {1}", NodeInfo(), p.Id));
+                                                                                          //Peers.ForEach(p => Debug.WriteLine("{0} new peer discovered: {1}", NodeInfo(), p.Id));
                                                                                       },
                                                                                       ex => Debug.WriteLine("OnError: {0}", ex.Message),
                                                                                       () => Debug.WriteLine("OnCompleted"))));
@@ -101,11 +101,15 @@ namespace JollyRaft
             {
                 if (State != State.Leader)
                 {
-                    State = State.Candidate;
-                    Debug.WriteLine("{0}: Starting a new Election. current term {1}. election Timout {2}ms", NodeInfo(), Term, electionTimeout.TotalMilliseconds);
-                    Term++;
+                    lock (grantVoteLocker)
+                    {
+                        State = State.Candidate;
+                        Debug.WriteLine("{0}: Starting a new Election. current term {1}. election Timout {2}ms", NodeInfo(), Term, electionTimeout.TotalMilliseconds);
+                        Term++;
 
-                    CurrentLeader = Id;
+                        CurrentLeader = Id;
+                  
+                    }
                     var successCount = 0;
 
                     var blah = Peers.Select(async p =>
@@ -354,7 +358,8 @@ namespace JollyRaft
             //reply false if log doesnt contain an entry at prevLogIndex whose term matches prevlogTerm
             if (!LocalLog.Entries.Any(e => e.Index == request.PreviousLogIndex && e.Term == request.PreviousLogTerm)) //not to sure about this line yet
             {
-                return new AppendEntriesResult(Term, false);
+                Debug.WriteLine(string.Format("follower LocalLog doesnt contain an entry at request.prevLogIndex({0}) whose term matches request.prevlogTerm{1}", request.PreviousLogIndex, request.Term));
+               // return new AppendEntriesResult(Term, false);
             }
 
             if (LocalLog.Entries.Any(e => e.Index == request.PreviousLogIndex && e.Term != request.PreviousLogTerm))

@@ -28,9 +28,9 @@ namespace JollyRaft
             return new TimeSpan((long) (appRandom.Value.NextDouble()*maxChangeInTicks)*possitiveOrNegative + timeSpan.Ticks);
         }
 
-        public static void ParrallelForEach<T>(this IEnumerable<T> collection, Action<T> action)
+        public static ParallelLoopResult ParrallelForEach<T>(this IEnumerable<T> collection, Action<T> action)
         {
-            Parallel.ForEach(collection, action);
+            return Parallel.ForEach(collection, action);
         }
 
         public static void ForEach<T>(this IEnumerable<T> collection, Action<T> action)

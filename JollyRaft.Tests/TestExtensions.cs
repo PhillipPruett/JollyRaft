@@ -33,6 +33,16 @@ namespace JollyRaft.Tests
             nodes.ForEach(n => Console.WriteLine(string.Format("{0} - {1} - term {2}", n.Id, n.State, n.Term)));
         }
 
+        public static Node Leader(this IEnumerable<Node> nodes)
+        {
+            return nodes.SingleOrDefault(n => n.State == State.Leader);
+        }
+
+        public static IEnumerable<Node> Followers(this IEnumerable<Node> nodes)
+        {
+            return nodes.Where(n => n.State == State.Follower);
+        }
+
         public static IDisposable StartRandomlyCrashing(this IEnumerable<Node> nodes, Subject<IEnumerable<Peer>> peerObservable, Random random)
         {
             return Observable.Interval(TestNode.ElectionTimeout)
