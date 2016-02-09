@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Concurrency;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -41,12 +42,11 @@ namespace JollyRaft.Tests
         [Test]
         public void elections_are_ran_shortly_after_node_startup()
         {
-            var testScheduler = new TestScheduler();
-            testScheduler.AdvanceTo(DateTimeOffset.UtcNow.Ticks);
-            var nodes = TestNode.CreateCluster(scheduler: testScheduler);
+            var virtualScheduler = new VirtualScheduler();
+            var nodes = TestNode.CreateCluster(scheduler: virtualScheduler);
             nodes.Start();
 
-            testScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks*2);
+            virtualScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks);
             nodes.Should().Contain(n => n.State == State.Leader || n.State == State.Candidate);
         }
 
@@ -92,16 +92,23 @@ namespace JollyRaft.Tests
         public async Task when_a_candidate_recieves_a_vote_response_from_a_node_with_a_higher_term_number_then_that_candidate_steps_down()
         {
             var peerObservable = new Subject<IEnumerable<Peer>>();
-            var nodes = TestNode.CreateCluster(peerObservable: peerObservable);
+            var testScheduler = new VirtualScheduler();
+            var nodes = TestNode.CreateCluster(peerObservable: peerObservable, scheduler: testScheduler);
             var leader = nodes.First();
+            testScheduler.AdvanceBy(TestNode.ElectionTimeout);
             await leader.StartElection();
             leader.StepDown(2, "none");
+            testScheduler.AdvanceBy(TestNode.ElectionTimeout);
+            nodes.LogStatus();
             await leader.StartElection();
+
+            leader.State.Should().Be(State.Leader);
             nodes.ForEach(n => n.Term.Should().Be(3));
 
-            var candidateThatsBehind = TestNode.CreateTestNode("candidateThatsBehind", peerObservable);
+            var candidateThatsBehind = TestNode.CreateTestNode("candidateThatsBehind", peerObservable, scheduler: testScheduler);
             nodes.Add(candidateThatsBehind);
             peerObservable.OnNext(nodes.Select(n => n.AsPeer()));
+            testScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks * 2);
             await candidateThatsBehind.StartElection();
 
             leader.State.Should().Be(State.Leader);
@@ -158,6 +165,24 @@ namespace JollyRaft.Tests
             nodes.Start();
             nodes.Start();
             nodes.Start();
+        }
+    }
+
+    public class VirtualScheduler : TestScheduler
+    {
+        public VirtualScheduler():base()
+        {
+            AdvanceTo(DateTimeOffset.UtcNow.Ticks);
+        }
+
+        public void AdvanceBy(TimeSpan timeSpan)
+        {
+            AdvanceBy(timeSpan.Ticks);
+        }
+
+        public void AdvanceTo(DateTimeOffset dateTimeOffset)
+        {
+            AdvanceTo(dateTimeOffset.Ticks);
         }
     }
 }

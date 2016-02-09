@@ -15,21 +15,24 @@ namespace JollyRaft.Tests
         private List<Node> leftBrain;
         private List<Node> rightBrain;
         private Node leftBrainLeader;
+        private VirtualScheduler scheduler;
 
         [SetUp]
         public void SetUp()
         {
-           leftBrainPeerObservable = new Subject<IEnumerable<Peer>>();
-           rightBrainPeerObservable = new Subject<IEnumerable<Peer>>();
+            scheduler = new VirtualScheduler();
+            leftBrainPeerObservable = new Subject<IEnumerable<Peer>>();
+            rightBrainPeerObservable = new Subject<IEnumerable<Peer>>();
 
-            leftBrain = TestNode.CreateCluster(clusterSize: 5, peerObservable: leftBrainPeerObservable);
-            rightBrain = TestNode.CreateCluster(clusterSize: 5, peerObservable: rightBrainPeerObservable);
+            leftBrain = TestNode.CreateCluster(clusterSize: 5, peerObservable: leftBrainPeerObservable, scheduler: scheduler);
+            rightBrain = TestNode.CreateCluster(clusterSize: 5, peerObservable: rightBrainPeerObservable, scheduler: scheduler);
 
             leftBrainLeader = leftBrain.First();
             leftBrainLeader.StartElection().Wait();
             rightBrain.First().StartElection().Wait();
 
             rightBrain.First().StepDown(2, "none");
+            scheduler.AdvanceBy(TestNode.ElectionTimeout);
             rightBrain.First().StartElection().Wait();
             rightBrain.ForEach(n => n.Term.Should().Be(3));
         }

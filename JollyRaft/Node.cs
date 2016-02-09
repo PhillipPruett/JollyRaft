@@ -15,12 +15,13 @@ namespace JollyRaft
     {
         private readonly CompositeDisposable disposables = new CompositeDisposable();
         private readonly object grantVoteLocker = new object();
-        private readonly NodeSettings nodeSettings;
+        private readonly NodeSettings settings;
         private int CommitIndex; // starts as 0
         private TimeSpan electionTimeout;
-        private DateTimeOffset lastHeartBeat;
+        private DateTimeOffset lastHeartBeat = DateTimeOffset.MinValue;
         private IEnumerable<Peer> Peers = new Peer[0];
         private bool started;
+        private bool randomizeElectionDelays = false;
 
         public Node(NodeSettings nodeSettings)
         {
@@ -29,10 +30,10 @@ namespace JollyRaft
                 throw new ArgumentNullException("nodeSettings");
             }
 
-            this.nodeSettings = nodeSettings;
+            settings = nodeSettings;
             State = State.Follower;
             electionTimeout = nodeSettings.ElectionTimeout;
-            Id = this.nodeSettings.NodeId;
+            Id = settings.NodeId;
             LocalLog = new Log();
             ServerLog = new Log();
             Term = 1;
@@ -66,14 +67,22 @@ namespace JollyRaft
                 return;
             }
 
+            var timeSpan = new TimeSpan((long)(settings.ElectionTimeout.Ticks * .5)).Randomize(90);
             //Election Holder
-            electionTimeout = nodeSettings.ElectionTimeout.Randomize(10);
-            disposables.Add(Observable.Interval(electionTimeout, nodeSettings.Scheduler)
-                                      .Subscribe(async o => { await StartElection(); },
+            electionTimeout = settings.ElectionTimeout.Randomize(10);
+            disposables.Add(Observable.Interval(electionTimeout, settings.Scheduler)
+                                      .Subscribe(async o =>
+                                                       {
+                                                           if (randomizeElectionDelays)
+                                                           {
+                                                               await Task.Delay(timeSpan);
+                                                           }
+                                                           await StartElection();
+                                                       },
                                                  e => Debug.WriteLine(e.Message)));
 
             //Heartbeat pumper
-            disposables.Add(Observable.Interval(nodeSettings.HeartBeatTimeout, nodeSettings.Scheduler)
+            disposables.Add(Observable.Interval(settings.HeartBeatTimeout, settings.Scheduler)
                                       .Subscribe(async o => { await SendHeartBeat(); },
                                                  e => Debug.WriteLine(e.Message)));
 
@@ -87,7 +96,8 @@ namespace JollyRaft
                 return;
             }
 
-            if (lastHeartBeat < nodeSettings.Scheduler.Now - electionTimeout)
+            var now = settings.Scheduler.Now;
+            if (lastHeartBeat <= now - electionTimeout)
             {
                 if (State != State.Leader)
                 {
@@ -127,7 +137,21 @@ namespace JollyRaft
                         Debug.WriteLine("{0}: Elected as Leader. votes {1}. needed {2}", NodeInfo(), successCount, PeerAgreementsNeededForConcensus());
                         await SendHeartBeat();
                     }
+                    else
+                    {
+                        Debug.WriteLine("{0}: Not elected. votes {1}. needed {2}", NodeInfo(), successCount, PeerAgreementsNeededForConcensus());
+                        randomizeElectionDelays = true;
+                    }
                 }
+            }
+            else
+            {
+                Debug.WriteLine(string.Format("{0}: election was attempted before election timeout. lastHeartBeat {1} < now {2} - electionTimeout {3}", NodeInfo(), lastHeartBeat,
+                    now,
+                    electionTimeout.TotalSeconds));     
+                Debug.WriteLine(string.Format("{0}: need {1}ms more.", NodeInfo(), ((now - electionTimeout) - lastHeartBeat).TotalMilliseconds,
+                    now,
+                    electionTimeout.TotalSeconds));     
             }
         }
 
@@ -145,7 +169,7 @@ namespace JollyRaft
                     State = State.Follower;
                 }
                 Debug.WriteLine(string.Format("{0}: Beating Heart", NodeInfo()));
-                lastHeartBeat = nodeSettings.Scheduler.Now;
+                lastHeartBeat = settings.Scheduler.Now;
                 CurrentLeader = id;
             }
             else
@@ -188,8 +212,12 @@ namespace JollyRaft
                     State = State.Follower;
                     CurrentLeader = request.Id;
                     Term = request.Term;
-                    lastHeartBeat = nodeSettings.Scheduler.Now;
+                    lastHeartBeat = settings.Scheduler.Now;
                     return new VoteResult(Term, true);
+                }
+                else if(request.Term > Term && State == State.Candidate)
+                {
+                    StepDown(Term, request.Id);
                 }
 
                 return new VoteResult(Term, false);
@@ -400,6 +428,7 @@ namespace JollyRaft
             State = State.Follower;
             Term = newTerm;
             CurrentLeader = null;
+            lastHeartBeat = settings.Scheduler.Now;
         }
 
         public IEnumerable<string> GetPeerIds()

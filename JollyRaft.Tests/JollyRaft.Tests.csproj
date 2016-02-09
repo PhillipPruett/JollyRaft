@@ -79,14 +79,17 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="AppendEntriesTests.cs" />
     <Compile Include="AppendEntryTests.cs" />
     <Compile Include="ExtensionTests.cs" />
     <Compile Include="Given_a_cluster_with_a_leader_and_one_node_that_has_gone_dark.cs" />
     <Compile Include="Given_a_leader_that_has_been_elected.cs" />
     <Compile Include="Given_a_node_that_has_just_started.cs" />
     <Compile Include="ElectionTests.cs" />
+    <Compile Include="NodeTests.cs" />
     <Compile Include="PeerDiscoveryTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StabilityTests.cs" />
     <Compile Include="TestExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
