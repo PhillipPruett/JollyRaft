@@ -124,6 +124,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\JollyRaft.Tests\JollyRaft.Tests.csproj">
+      <Project>{F468E99B-9C86-4F64-BCE8-F136DD7F8661}</Project>
+      <Name>JollyRaft.Tests</Name>
+    </ProjectReference>
     <ProjectReference Include="..\JollyRaft\JollyRaft.csproj">
       <Project>{fe28a832-166a-43c5-b827-c869b069b9de}</Project>
       <Name>JollyRaft</Name>

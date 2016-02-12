@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace JollyRaft
+namespace JollyRaft.Tests
 {
     public static class TestNodeExtensions
     {

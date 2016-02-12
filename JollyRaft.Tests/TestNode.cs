@@ -6,7 +6,7 @@ using System.Reactive.Subjects;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace JollyRaft
+namespace JollyRaft.Tests
 {
     public class TestNode : Node
     {

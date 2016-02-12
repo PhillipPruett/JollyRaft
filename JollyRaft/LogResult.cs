@@ -13,8 +13,4 @@ namespace JollyRaft
     {
         public string LeaderId {get; set;}
     }
-
-    public class LogFailed : LogResult
-    {
-    }
 }

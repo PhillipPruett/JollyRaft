@@ -21,7 +21,7 @@ namespace JollyRaft
                 return timeSpan;
             }
 
-            double maxChangeInTicks = timeSpan.Ticks*(1.0/maxPercentageChange);
+            var maxChangeInTicks = timeSpan.Ticks*(1.0/maxPercentageChange);
 
             var possitiveOrNegative = (appRandom.Value.Next(1, 3)%2 == 0 ? 1 : -1);
 

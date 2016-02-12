@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
-using Microsoft.Reactive.Testing;
 using NUnit.Framework;
 
 namespace JollyRaft.Tests
@@ -13,8 +11,7 @@ namespace JollyRaft.Tests
         [SetUp]
         public void SetUp()
         {
-            testScheduler = new TestScheduler();
-            testScheduler.AdvanceTo(DateTimeOffset.UtcNow.Ticks);
+            testScheduler = new VirtualScheduler();
             nodes = TestNode.CreateCluster(scheduler: testScheduler);
             nodes.Start();
             leader = nodes.WaitForLeader(testScheduler).Result;
@@ -23,18 +20,16 @@ namespace JollyRaft.Tests
             darkNode.SleepOnAppendEntries = true;
         }
 
-        private Node node1;
-        private Node node2;
         private List<Node> nodes;
         private Node leader;
         private TestNode darkNode;
-        private TestScheduler testScheduler;
+        private VirtualScheduler testScheduler;
 
         [Test]
         public async void when_a_command_is_sent_the_consensus_can_still_be_reached()
         {
             await leader.AddLog("first command");
-            testScheduler.AdvanceBy(TestNode.HeartBeatTimeout.Ticks);
+            testScheduler.AdvanceBy(TestNode.HeartBeatTimeout);
             leader.ServerLog.Entries.Last().ShouldBeEquivalentTo(new LogEntry(2, 2, "first command"));
         }
 
@@ -42,13 +37,13 @@ namespace JollyRaft.Tests
         public async void when_the_dark_node_comes_back_online_it_is_updated_by_the_leader()
         {
             await leader.AddLog("first command");
-            testScheduler.AdvanceBy(TestNode.HeartBeatTimeout.Ticks);
+            testScheduler.AdvanceBy(TestNode.HeartBeatTimeout);
             leader.ServerLog.Entries.Last().ShouldBeEquivalentTo(new LogEntry(2, 2, "first command"));
 
             darkNode.ServerLog.Entries.Last().ShouldBeEquivalentTo(new LogEntry(1, 1, null));
             darkNode.SleepOnAppendEntries = false;
 
-            testScheduler.AdvanceBy(TestNode.HeartBeatTimeout.Ticks);
+            testScheduler.AdvanceBy(TestNode.HeartBeatTimeout);
             darkNode.ServerLog.Entries.Last().ShouldBeEquivalentTo(new LogEntry(2, 2, "first command"));
         }
     }

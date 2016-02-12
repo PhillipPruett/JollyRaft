@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
@@ -13,8 +12,7 @@ namespace JollyRaft.Tests
         [SetUp]
         public void SetUp()
         {
-            testScheduler = new TestScheduler();
-            testScheduler.AdvanceTo(DateTimeOffset.UtcNow.Ticks);
+            testScheduler = new VirtualScheduler();
             nodes = TestNode.CreateCluster(scheduler: testScheduler);
             nodes.Start();
             leader = nodes.WaitForLeader(testScheduler).Result;

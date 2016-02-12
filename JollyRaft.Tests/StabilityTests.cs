@@ -96,14 +96,12 @@ namespace JollyRaft.Tests
             await cluster.WaitForLeader(scheduler);
             var expectedServerLog = new Log();
 
-            var result = Enumerable.Range(1, 100).ParrallelForEach( i =>
+            Enumerable.Range(1, 100).ForEach( i =>
             {
                 cluster.Leader().AddLog(i.ToString()).Wait();
                 expectedServerLog.Add(cluster.Leader().Term, i.ToString());
+                scheduler.AdvanceBy(TimeSpan.FromSeconds(1));
             });
-
-            scheduler.AdvanceBy(TimeSpan.FromSeconds(10));
-            scheduler.AdvanceBy(TimeSpan.FromSeconds(10));
 
             cluster.Leader().LocalLog.Entries.Count.Should().Be(101);
             cluster.Leader().ServerLog.Entries.Count.Should().Be(101);
@@ -126,7 +124,6 @@ namespace JollyRaft.Tests
             cluster.Start();
             await cluster.WaitForLeader(scheduler);
             var expectedServerLog = new Log();
-
             var validationCounter = 0;
 
             Observable.Interval(TimeSpan.FromSeconds(1), scheduler)
@@ -134,8 +131,7 @@ namespace JollyRaft.Tests
                                        {
                                            Validate(cluster);
                                            validationCounter ++;
-                                       },
-                                 e => Debug.WriteLine(e.Message));
+                                       });
 
             Enumerable.Range(1, 100).ForEach(async i =>
             {
@@ -146,6 +142,12 @@ namespace JollyRaft.Tests
 
           
             Console.WriteLine("Validation ran {0} times on cluster", validationCounter);
+        }
+
+        [Test]
+        public async Task observableTests()
+        {
+            var scheduler = new VirtualScheduler();
         }
 
         private void Validate(List<Node> cluster)

@@ -91,6 +91,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StabilityTests.cs" />
     <Compile Include="TestExtensions.cs" />
+    <Compile Include="TestNode.cs" />
+    <Compile Include="TestNodeExtensions.cs" />
+    <Compile Include="VirtualScheduler.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\JollyRaft\JollyRaft.csproj">

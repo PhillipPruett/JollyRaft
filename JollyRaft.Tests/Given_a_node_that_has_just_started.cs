@@ -43,7 +43,7 @@ namespace JollyRaft.Tests
         }
 
         [Test]
-        public async Task when_peers_arent_discovered_untill_after_node_start_then_a_leader_will_still_be_elected()
+        public async Task when_peers_arent_discovered_until_after_node_start_then_a_leader_will_still_be_elected()
         {
             var peerObservable = new Subject<IEnumerable<Peer>>();
 

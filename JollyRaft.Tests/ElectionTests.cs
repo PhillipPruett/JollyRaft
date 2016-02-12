@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Concurrency;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Microsoft.Reactive.Testing;
 using NUnit.Framework;
 
 namespace JollyRaft.Tests
@@ -51,6 +48,54 @@ namespace JollyRaft.Tests
         }
 
         [Test]
+        public async Task elections_work_for_large_clusters()
+        {
+            var nodes = TestNode.CreateCluster(100);
+
+            nodes.ForEach(n => n.StartElection());
+
+            nodes.Should().ContainSingle(n => n.State == State.Leader);
+        }
+
+        [Test]
+        public async Task Nodes_can_be_started_multiple_times()
+        {
+            var nodes = TestNode.CreateCluster(3);
+
+            nodes.Start();
+            nodes.Start();
+            nodes.Start();
+        }
+
+        [Test]
+        public async Task when_a_candidate_recieves_a_vote_response_from_a_node_with_a_higher_term_number_then_that_candidate_steps_down()
+        {
+            var peerObservable = new Subject<IEnumerable<Peer>>();
+            var testScheduler = new VirtualScheduler();
+            var nodes = TestNode.CreateCluster(peerObservable: peerObservable, scheduler: testScheduler);
+            var leader = nodes.First();
+            testScheduler.AdvanceBy(TestNode.ElectionTimeout);
+            await leader.StartElection();
+            leader.StepDown(2, "none");
+            testScheduler.AdvanceBy(TestNode.ElectionTimeout);
+            nodes.LogStatus();
+            await leader.StartElection();
+
+            leader.State.Should().Be(State.Leader);
+            nodes.ForEach(n => n.Term.Should().Be(3));
+
+            var candidateThatsBehind = TestNode.CreateTestNode("candidateThatsBehind", peerObservable, testScheduler);
+            nodes.Add(candidateThatsBehind);
+            peerObservable.OnNext(nodes.Select(n => n.AsPeer()));
+            testScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks*2);
+            await candidateThatsBehind.StartElection();
+
+            leader.State.Should().Be(State.Leader);
+            candidateThatsBehind.Term.Should().Be(3);
+            candidateThatsBehind.State.Should().Be(State.Follower, "the node should have immediatly stepped down because it attempted to start an election for term 2 but the cluster was on term 3");
+        }
+
+        [Test]
         public async Task when_a_candidate_recieves_an_AppendEntries_from_a_leader_that_candidate_becomes_a_follower()
         {
             var peerObservable = new Subject<IEnumerable<Peer>>();
@@ -89,34 +134,6 @@ namespace JollyRaft.Tests
         }
 
         [Test]
-        public async Task when_a_candidate_recieves_a_vote_response_from_a_node_with_a_higher_term_number_then_that_candidate_steps_down()
-        {
-            var peerObservable = new Subject<IEnumerable<Peer>>();
-            var testScheduler = new VirtualScheduler();
-            var nodes = TestNode.CreateCluster(peerObservable: peerObservable, scheduler: testScheduler);
-            var leader = nodes.First();
-            testScheduler.AdvanceBy(TestNode.ElectionTimeout);
-            await leader.StartElection();
-            leader.StepDown(2, "none");
-            testScheduler.AdvanceBy(TestNode.ElectionTimeout);
-            nodes.LogStatus();
-            await leader.StartElection();
-
-            leader.State.Should().Be(State.Leader);
-            nodes.ForEach(n => n.Term.Should().Be(3));
-
-            var candidateThatsBehind = TestNode.CreateTestNode("candidateThatsBehind", peerObservable, scheduler: testScheduler);
-            nodes.Add(candidateThatsBehind);
-            peerObservable.OnNext(nodes.Select(n => n.AsPeer()));
-            testScheduler.AdvanceBy(TestNode.ElectionTimeout.Ticks * 2);
-            await candidateThatsBehind.StartElection();
-
-            leader.State.Should().Be(State.Leader);
-            candidateThatsBehind.Term.Should().Be(3);
-            candidateThatsBehind.State.Should().Be(State.Follower, "the node should have immediatly stepped down because it attempted to start an election for term 2 but the cluster was on term 3");
-        }
-
-        [Test]
         public async Task when_a_node_is_not_aware_of_any_peers_it_will_not_start_an_election_stagnating_at_the_first_term()
         {
             var node = TestNode.CreateCluster(1).Single();
@@ -145,44 +162,6 @@ namespace JollyRaft.Tests
             nodes.ForEach(n => n.StartElection());
 
             nodes.Should().ContainSingle(n => n.State == State.Leader);
-        }
-
-        [Test]
-        public async Task elections_work_for_large_clusters()
-        {
-            var nodes = TestNode.CreateCluster(clusterSize: 100);
-
-            nodes.ForEach(n => n.StartElection());
-
-            nodes.Should().ContainSingle(n => n.State == State.Leader);
-        }
-
-        [Test]
-        public async Task Nodes_can_be_started_multiple_times()
-        {
-            var nodes = TestNode.CreateCluster(clusterSize: 3);
-
-            nodes.Start();
-            nodes.Start();
-            nodes.Start();
-        }
-    }
-
-    public class VirtualScheduler : TestScheduler
-    {
-        public VirtualScheduler():base()
-        {
-            AdvanceTo(DateTimeOffset.UtcNow.Ticks);
-        }
-
-        public void AdvanceBy(TimeSpan timeSpan)
-        {
-            AdvanceBy(timeSpan.Ticks);
-        }
-
-        public void AdvanceTo(DateTimeOffset dateTimeOffset)
-        {
-            AdvanceTo(dateTimeOffset.Ticks);
         }
     }
 }

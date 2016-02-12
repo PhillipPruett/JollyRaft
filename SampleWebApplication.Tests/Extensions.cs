@@ -3,7 +3,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using JollyRaft;
+using JollyRaft.Tests;
 using Newtonsoft.Json;
 
 namespace JollyRaft.Sample.Tests
