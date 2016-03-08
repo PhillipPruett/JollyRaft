@@ -72,6 +72,7 @@ namespace JollyRaft.Tests
         }
 
         [Test]
+        [Ignore]
         public async Task logs_can_be_quickly_written_in_parallel_to_a_leader()
         {
             var scheduler = Scheduler.Default;

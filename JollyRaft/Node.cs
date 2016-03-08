@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace JollyRaft
 {
-    public class Node : IDisposable
+    public partial class Node : IDisposable
     {
         private readonly CompositeDisposable disposables = new CompositeDisposable();
         private readonly object grantVoteLocker = new object();
@@ -22,6 +22,7 @@ namespace JollyRaft
         private IEnumerable<Peer> Peers = new Peer[0];
         private bool started;
         private bool randomizeElectionDelays = false;
+        private IRequestHandler requestHandler;
 
         public Node(NodeSettings nodeSettings)
         {
@@ -31,12 +32,13 @@ namespace JollyRaft
             }
 
             settings = nodeSettings;
-            State = State.Follower;
+            requestHandler = new Follower(this);
             electionTimeout = nodeSettings.ElectionTimeout;
             Id = settings.NodeId;
             LocalLog = new Log();
             ServerLog = new Log();
             Term = 1;
+   
 
             disposables.Add(nodeSettings.PeerObserver
                                         .Subscribe(Observer.Create<IEnumerable<Peer>>(peers =>
@@ -46,13 +48,26 @@ namespace JollyRaft
                                                                                       },
                                                                                       ex => Debug.WriteLine("OnError: {0}", ex.Message),
                                                                                       () => Debug.WriteLine("OnCompleted"))));
+
         }
 
         public Log LocalLog { get; private set; }
         public Log ServerLog { get; private set; }
         public int Term { get; private set; }
         public string Id { get; private set; }
-        public State State { get; private set; }
+
+        public State State
+        {
+            get
+            {
+                return (requestHandler is Follower)
+                           ? State.Follower
+                           : (requestHandler is Candidate)
+                                 ? State.Candidate
+                                 : State.Leader;
+            }
+        }
+
         public string CurrentLeader { get; private set; }
 
         public void Dispose()
@@ -96,97 +111,15 @@ namespace JollyRaft
                 return;
             }
 
-            var now = settings.Scheduler.Now;
-            if (lastHeartBeat <= now - electionTimeout)
-            {
-                if (State != State.Leader)
-                {
-                    lock (grantVoteLocker)
-                    {
-                        State = State.Candidate;
-                        Debug.WriteLine("{0}: Starting a new Election. current term {1}. election Timout {2}ms", NodeInfo(), Term, electionTimeout.TotalMilliseconds);
-                        Term++;
-
-                        CurrentLeader = Id;
-                  
-                    }
-                    var successCount = 0;
-
-                    var blah = Peers.Select(async p =>
-                                                  {
-                                                      var vote = await p.RequestVote(new VoteRequest(Id, Term, LocalLog.LastTerm, LocalLog.LastIndex));
-                                                      if (vote.VoteGranted)
-                                                      {
-                                                          Debug.WriteLine("{0}: Vote granted from {1}", NodeInfo(), p.Id);
-                                                          Interlocked.Increment(ref successCount);
-                                                      }
-                                                      else
-                                                      {
-                                                          if (vote.CurrentTerm > Term)
-                                                          {
-                                                              Debug.WriteLine("{0}: stepping down as vote returned had higher term {1}", NodeInfo(), vote.CurrentTerm);
-                                                              StepDown(vote.CurrentTerm, p.Id);
-                                                          }
-                                                      }
-                                                  });
-
-                    foreach (var task in blah)
-                    {
-                        await task;
-                    }
-
-                    if (ConcencusIsReached(successCount) && State == State.Candidate)
-                    {
-                        State = State.Leader;
-                        Debug.WriteLine("{0}: Elected as Leader. votes {1}. needed {2}", NodeInfo(), successCount, PeerAgreementsNeededForConcensus());
-                        await SendHeartBeat();
-                    }
-                    else
-                    {
-                        Debug.WriteLine("{0}: Not elected. votes {1}. needed {2}", NodeInfo(), successCount, PeerAgreementsNeededForConcensus());
-                        randomizeElectionDelays = true;
-                    }
-                }
-            }
-            else
-            {
-                Debug.WriteLine(string.Format("{0}: election was attempted before election timeout. lastHeartBeat {1} < now {2} - electionTimeout {3}", NodeInfo(), lastHeartBeat,
-                    now,
-                    electionTimeout.TotalSeconds));     
-                Debug.WriteLine(string.Format("{0}: need {1}ms more.", NodeInfo(), ((now - electionTimeout) - lastHeartBeat).TotalMilliseconds,
-                    now,
-                    electionTimeout.TotalSeconds));     
-            }
+            await requestHandler.StartElection();
         }
 
         private string NodeInfo()
         {
-            return string.Format("{0}.{1}", Id, State);
+            return string.Format("{0}.{1}", Id, requestHandler.GetType().Name);
         }
 
-        private void HeartBeat(string id, int termNumber)
-        {
-            if (termNumber == Term)
-            {
-                if (State == State.Candidate)
-                {
-                    State = State.Follower;
-                }
-                Debug.WriteLine(string.Format("{0}: Beating Heart", NodeInfo()));
-                lastHeartBeat = settings.Scheduler.Now;
-                CurrentLeader = id;
-            }
-            else
-            {
-                //Tried to heartbeat but failed. current term 2 voted for node3 . sender term 2 sender Id node2
-                Debug.WriteLine("{0}: Tried to heartbeat but failed. current term {1} voted for {2} . sender term {3} sender Id {4}",
-                                Id,
-                                Term,
-                                CurrentLeader,
-                                termNumber,
-                                id);
-            }
-        }
+
 
         private bool ConcencusIsReached(int amountOfAgreements)
         {
@@ -201,54 +134,17 @@ namespace JollyRaft
 
         public virtual async Task<VoteResult> Vote(VoteRequest request)
         {
-            if (request.Term < Term)
-            {
-                return new VoteResult(Term, false);
-            }
-            //this needs some sort of lock around it. although it would be very rare in a deployed system, the nodes in unit tests have hit
-            //this block at the exact same time, resulting in both nodes getting the vote.
-            //using a lock for now. should be replaced at some point with interlocked for perf
-            lock (grantVoteLocker)
-            {
-                if (CurrentLeader == null || CurrentLeader == request.Id)
-                {
-                    Debug.WriteLine("{0}: Voting for {1} for term {2}", NodeInfo(), request.Id, request.Term);
-                    State = State.Follower;
-                    CurrentLeader = request.Id;
-                    Term = request.Term;
-                    lastHeartBeat = settings.Scheduler.Now;
-                    return new VoteResult(Term, true);
-                }
-                else if(request.Term > Term && State == State.Candidate)
-                {
-                    StepDown(Term, request.Id);
-                }
-
-                return new VoteResult(Term, false);
-            }
+            return await requestHandler.Vote(request);
         }
 
         public async Task<LogResult> AddLog(string log)
         {
-            if (State != State.Leader)
-            {
-                return new LogRejected
-                       {
-                           LeaderId = CurrentLeader
-                       };
-            }
-
-            Debug.WriteLine("{0}: Adding Log {1}", NodeInfo(), log);
-            return await SendAppendEntries(log, false);
+            return await requestHandler.AddLog(log);
         }
 
         public async Task SendHeartBeat()
         {
-            if (State == State.Leader)
-            {
-                Debug.WriteLine(string.Format("{0}: Sending HearthBeat", NodeInfo()));
-                await SendAppendEntries(null, true);
-            }
+            await requestHandler.SendHeartBeat();
         }
 
         private async Task CommitToServerLog(string log)
@@ -324,74 +220,7 @@ namespace JollyRaft
 
         public virtual async Task<AppendEntriesResult> AppendEntries(AppendEntriesRequest request)
         {
-            Debug.WriteLine("{0}: GOT APPEND ENTRIES CALL {1}: leader commit {2} : entries: {3}", NodeInfo(), request.Id, request.CommitIndex, String.Concat(request.Entries.Select(e => e.Log + " ")));
-            HeartBeat(request.Id, request.Term);
-
-            if (request.Term < Term)
-            {
-                return new AppendEntriesResult(Term, false);
-            }
-
-            CurrentLeader = request.Id;
-
-            if (request.Term > Term) //servers term is behind. we need to ensure we are in follower state and reset who we have voted for
-            {
-                State = State.Follower;
-                Term = request.Term;
-                lastHeartBeat = settings.Scheduler.Now;
-            }
-
-            if (request.Entries == null || !request.Entries.Any()) //heartbeat
-            {
-                if (request.CommitIndex > ServerLog.LastIndex)
-                {
-                    Debug.WriteLine("{0}: HeartBeat Adding To Server Log up to index {1} leaderCommitIndex {2}", NodeInfo(), request.PreviousLogIndex, request.CommitIndex);
-                    LocalLog.Entries.Where(e => e.Index > ServerLog.LastIndex && e.Index <= request.CommitIndex).ForEach(e => ServerLog.Add(e.Term, e.Log));
-                }
-
-                return new AppendEntriesResult(Term, true);
-            }
-
-          
-
-          
-
-            if (request.PreviousLogIndex == 0 || (request.PreviousLogIndex <= ServerLog.LastIndex &&
-                                                  ServerLog.LastTerm == request.PreviousLogTerm))
-            {
-                Debug.WriteLine("{0}: huh");
-            }
-
-            //reply false if log doesnt contain an entry at prevLogIndex whose term matches prevlogTerm
-            if (!LocalLog.Entries.Any(e => e.Index == request.PreviousLogIndex && e.Term == request.PreviousLogTerm)) //not to sure about this line yet
-            {
-                Debug.WriteLine(string.Format("follower LocalLog doesnt contain an entry at request.prevLogIndex({0}) whose term matches request.prevlogTerm{1}", request.PreviousLogIndex, request.Term));
-               // return new AppendEntriesResult(Term, false);
-            }
-
-            if (LocalLog.Entries.Any(e => e.Index == request.PreviousLogIndex && e.Term != request.PreviousLogTerm))
-            {
-                //delete the entry and all that follow it
-                LocalLog.RemoveEntryAndThoseAfterIt(request.PreviousLogIndex);
-            }
-
-            if (request.Entries.Max(e => e.Index) > LocalLog.LastIndex)
-            {
-                Debug.WriteLine("{0}: Adding To Local Log up to index {1} leaderCommitIndex {2}", NodeInfo(), request.Entries.Max(e => e.Index), request.CommitIndex);
-                request.Entries.Where(e => e.Index > LocalLog.LastIndex).ForEach(e => LocalLog.Add(e.Term, e.Log));
-            }
-            if (request.CommitIndex > ServerLog.LastIndex)
-            {
-                Debug.WriteLine("{0}: Adding To Server Log up to index {1} leaderCommitIndex {2}", NodeInfo(), request.PreviousLogIndex, request.CommitIndex);
-                request.Entries.Where(e => e.Index > ServerLog.LastIndex && e.Index <= request.CommitIndex).ForEach(e => ServerLog.Add(e.Term, e.Log));
-            }
-
-            if (request.CommitIndex > CommitIndex)
-            {
-                CommitIndex = Math.Min(request.CommitIndex, LocalLog.LastIndex);
-            }
-
-            return new AppendEntriesResult(Term, true);
+            return await requestHandler.AppendEntries(request);
         }
 
         public void StepDown(int newTerm, string idOfNodeWithHigherTerm)
@@ -401,7 +230,7 @@ namespace JollyRaft
                             idOfNodeWithHigherTerm,
                             newTerm,
                             Term);
-            State = State.Follower;
+            requestHandler = new Follower(this);
             Term = newTerm;
             CurrentLeader = null;
             lastHeartBeat = settings.Scheduler.Now;

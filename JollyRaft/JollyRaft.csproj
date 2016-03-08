@@ -54,7 +54,11 @@
   <ItemGroup>
     <Compile Include="AppendEntriesRequest.cs" />
     <Compile Include="AppendEntriesResult.cs" />
+    <Compile Include="Candidate.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="Follower.cs" />
+    <Compile Include="IRequestHandler.cs" />
+    <Compile Include="Leader.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="LogEntry.cs" />
     <Compile Include="LogResult.cs" />
@@ -67,7 +71,9 @@
     <Compile Include="VoteRequest.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
