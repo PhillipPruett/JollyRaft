@@ -4,9 +4,11 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using FluentAssertions;
+using JollyRaft.Tests;
 using Microsoft.Owin.Testing;
 using Newtonsoft.Json;
 using NUnit.Framework;
@@ -112,6 +114,8 @@ namespace JollyRaft.Sample.Tests
                                           Log = "first commit"
                                       }.AsStringContent())
                            .Result.StatusCode.Should().Be(HttpStatusCode.OK);
+
         }
+
     }
 }

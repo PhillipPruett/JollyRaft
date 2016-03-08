@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
@@ -43,21 +44,17 @@ namespace JollyRaft.Tests
             return nodes.Where(n => n.State == State.Follower);
         }
 
-        public static IDisposable StartRandomlyCrashing(this IEnumerable<Node> nodes, Subject<IEnumerable<Peer>> peerObservable, Random random)
+        public static IDisposable StartRandomlyCrashing(this Node[] nodes, Subject<IEnumerable<Peer>> peerObservable, Random random, IScheduler scheduler = null)
         {
-            return Observable.Interval(TestNode.ElectionTimeout)
+            return Observable.Interval(new TimeSpan(TestNode.ElectionTimeout.Ticks*7), scheduler ?? Scheduler.Default)
                              .Subscribe(o =>
                                         {
+                                            nodes.Start();
                                             var nodeIndexToRemove = random.Next(0, nodes.Count());
-                                            var nodesWithMissingRandomNode  = nodes.Where((n, i) =>
-                                                                                          {
-                                                                                              if (i == nodeIndexToRemove)
-                                                                                              {
-                                                                                                  Console.WriteLine("Removing Node " + n.Id);
-                                                                                              }
-                                                                                              return i != nodeIndexToRemove;
-                                                                                          });
-                                            peerObservable.OnNext(nodesWithMissingRandomNode.Select(n => n.AsPeer()));
+                                            Console.WriteLine(string.Format("Removing Node at index {0}", nodeIndexToRemove));
+                                            var id = nodes[nodeIndexToRemove].Id;
+                                            nodes[nodeIndexToRemove] = new TestNode(new NodeSettings(id, TestNode.ElectionTimeout, TestNode.HeartBeatTimeout, peerObservable, scheduler));
+                                            peerObservable.OnNext(nodes.Where(n => n.Id != id).Select(n => n.AsPeer()));
                                         },
                                         e => Debug.WriteLine(e.Message));
         }

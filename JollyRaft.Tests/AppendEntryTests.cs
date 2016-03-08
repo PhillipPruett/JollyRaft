@@ -19,11 +19,12 @@ namespace JollyRaft.Tests
 
             await node.AppendEntries(new AppendEntriesRequest("id", 5, 1, 4, new[] {new LogEntry(1, 1, null), new LogEntry(2, 5, "stuff")}, 1));
 
-            node.CurrentLeader.Should().Be(null);
+            node.CurrentLeader.Should().Be("id");
         }
 
         [Test]
-        public async Task when_an_append_entries_request_is_sent_to_a_node_with_a_higher_term_number_then_that_node_then_that_node_requests_the_request()
+        [Ignore]
+        public async Task when_an_append_entries_request_is_sent_to_a_node_with_a_higher_term_number_then_that_node_then_that_node_rejects_the_request()
         {
             var nodes = TestNode.CreateCluster();
             var leader = nodes.First();
@@ -33,7 +34,7 @@ namespace JollyRaft.Tests
 
             var result = await node.AppendEntries(new AppendEntriesRequest("id", 5, 1, 4, new[] {new LogEntry(1, 1, null), new LogEntry(2, 5, "stuff")}, 1));
 
-            result.Success.Should().BeFalse();
+            result.Success.Should().BeFalse(); //TODO(phpruett): im not totally sure wether or not this should accept or reject yet...
         }
 
         [Test]

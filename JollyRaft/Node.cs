@@ -327,6 +327,20 @@ namespace JollyRaft
             Debug.WriteLine("{0}: GOT APPEND ENTRIES CALL {1}: leader commit {2} : entries: {3}", NodeInfo(), request.Id, request.CommitIndex, String.Concat(request.Entries.Select(e => e.Log + " ")));
             HeartBeat(request.Id, request.Term);
 
+            if (request.Term < Term)
+            {
+                return new AppendEntriesResult(Term, false);
+            }
+
+            CurrentLeader = request.Id;
+
+            if (request.Term > Term) //servers term is behind. we need to ensure we are in follower state and reset who we have voted for
+            {
+                State = State.Follower;
+                Term = request.Term;
+                lastHeartBeat = settings.Scheduler.Now;
+            }
+
             if (request.Entries == null || !request.Entries.Any()) //heartbeat
             {
                 if (request.CommitIndex > ServerLog.LastIndex)
@@ -338,16 +352,9 @@ namespace JollyRaft
                 return new AppendEntriesResult(Term, true);
             }
 
-            if (Term < request.Term) //servers term is behind. we need to ensure we are in follower state and reset who we have voted for
-            {
-                StepDown(request.Term, request.Id);
-                return new AppendEntriesResult(Term, false);
-            }
+          
 
-            if (request.Term < Term)
-            {
-                return new AppendEntriesResult(Term, false);
-            }
+          
 
             if (request.PreviousLogIndex == 0 || (request.PreviousLogIndex <= ServerLog.LastIndex &&
                                                   ServerLog.LastTerm == request.PreviousLogTerm))

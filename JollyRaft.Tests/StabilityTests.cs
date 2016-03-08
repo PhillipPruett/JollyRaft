@@ -23,21 +23,33 @@ namespace JollyRaft.Tests
         public async Task when_a_cluster_has_nodes_that_crash_very_often_then_logs_are_still_persisted()
         {
             Subject<IEnumerable<Peer>> peerObservable = new Subject<IEnumerable<Peer>>();
-            var cluster = TestNode.CreateCluster(clusterSize: 20, peerObservable: peerObservable);
+            var scheduler = new VirtualScheduler();
+            var cluster = TestNode.CreateCluster(clusterSize: 20, peerObservable: peerObservable, scheduler: scheduler);
             cluster.Start();
-            await cluster.WaitForLeader();
+            await cluster.WaitForLeader(scheduler);
+                var expectedServerLog = new Log();
 
-            var crasher = cluster.StartRandomlyCrashing(peerObservable, new Random());
+            var crasher = cluster.ToArray().StartRandomlyCrashing(peerObservable, new Random(), scheduler);
 
-            for (int i = 0; i < 30; i++)
+            var validator = Observable.Interval(TimeSpan.FromSeconds(1), scheduler)
+                                      .Subscribe(async o =>
+                                                       {
+                                                           Validate(cluster);
+                                                       });
+
+            Enumerable.Range(1, 100).ForEach(async i =>
             {
-                Console.WriteLine(
-                    i + " " + string.Join(", ", cluster.Where(n => n.State == State.Leader).Select(n => n.Id)));
+                var leader = cluster.Leader();
+                if (leader != null)
+                {
+                    await leader.AddLog(i.ToString());
+                    expectedServerLog.Add(leader.Term, i.ToString());
+                }
+                scheduler.AdvanceBy(TimeSpan.FromSeconds(1));
+            });
 
-                await Task.Delay(TestNode.ElectionTimeout);
-            }
-            await cluster.WaitForLeader();
-            cluster.Should().Contain(n => n.State == State.Leader);
+            await cluster.WaitForLeader(scheduler);
+            cluster.Leader().ServerLog.Entries.ShouldBeEquivalentTo(expectedServerLog.Entries);
         }
 
         [Test]
@@ -120,6 +132,7 @@ namespace JollyRaft.Tests
         public async Task clusters_remain_in_a_valid_state_throughout_logging()
         {
             var scheduler = new VirtualScheduler();
+
             var cluster = TestNode.CreateCluster(clusterSize: 2, scheduler: scheduler);
             cluster.Start();
             await cluster.WaitForLeader(scheduler);
@@ -144,19 +157,13 @@ namespace JollyRaft.Tests
             Console.WriteLine("Validation ran {0} times on cluster", validationCounter);
         }
 
-        [Test]
-        public async Task observableTests()
-        {
-            var scheduler = new VirtualScheduler();
-        }
-
         private void Validate(List<Node> cluster)
         {
             //From Raft Paper:
             //Election Safety: at most one leader can be elected in a
             //given term. §5.2
 
-            cluster.Should().ContainSingle(n => n.State == State.Leader);
+            cluster.Where((n => n.State == State.Leader)).GroupBy(n => n.Term).ForEach(g => g.Count().Should().BeLessOrEqualTo(1));
 
             //Leader Append-Only: a leader never overwrites or deletes
             //entries in its log; it only appends new entries. §5.3
@@ -166,13 +173,16 @@ namespace JollyRaft.Tests
             //of the leaders for all higher-numbered terms. §5.4
 
             var leader = cluster.Leader();
-            if (lastKnownLeaderEntries == null)
+            if (leader != null)
             {
+                Console.WriteLine(string.Format("leader is {0}", leader.Id));
+                if (lastKnownLeaderEntries == null)
+                {
+                    lastKnownLeaderEntries = leader.ServerLog.Entries;
+                }
+                leader.ServerLog.Entries.Take(lastKnownLeaderEntries.Count).ShouldAllBeEquivalentTo(lastKnownLeaderEntries);
                 lastKnownLeaderEntries = leader.ServerLog.Entries;
             }
-            leader.ServerLog.Entries.Take(lastKnownLeaderEntries.Count).ShouldAllBeEquivalentTo(lastKnownLeaderEntries);
-            lastKnownLeaderEntries = leader.ServerLog.Entries;
-
             //Log Matching: if two logs contain an entry with the same
             //index and term, then the logs are identical in all entries
             //up through the given index. §5.3
@@ -204,6 +214,10 @@ namespace JollyRaft.Tests
                                                                     var entryToCompare = nn.ServerLog.Entries.SingleOrDefault(ee => ee.Index == e.Index);
                                                                     if (entryToCompare != null)
                                                                     {
+                                                                        if (e.Log != entryToCompare.Log)
+                                                                        {
+                                                                            Console.WriteLine("OOPS");
+                                                                        }
                                                                         e.Log.Should().Be(entryToCompare.Log);
                                                                     }
                                                                 });
